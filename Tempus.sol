@@ -785,20 +785,20 @@ contract Tempus is ERC20, Ownable {
     uint256 private rateInterest = 25 * (10 ** _decimals) / (100 * 100); // 0.25%
     uint256 private rateBonus = 1000 * (10 ** _decimals) / (100 * 100); // 10%
     
-    mapping(address => HODL_Info) public HODLInfos;
+    mapping(address => HODL_Info) private HODLInfos;
     
     uint256 startSignalAmount = 1; //0.00000001
     uint256 stopSignalAmount = 2; //0.00000002
     
-    uint256 public totalGoodHODLs;
-    uint256 public totalCurrentHolding;
-    uint256 public totalHODLs;
-    uint256 public totalGoodHODLsAmount;
-    uint256 public totalCurrentHoldingAmount;
-    uint256 public totalHODLsAmount;
+    uint256 private totalHODLs;
+    uint256 private totalGoodHODLs;
+    uint256 private totalCurrentHolding;
+    uint256 private totalGoodHODLsAmount;
+    uint256 private totalCurrentHoldingAmount;
+    uint256 private totalHODLsAmount;
     
-    uint256 public totalInterestReward;
-    uint256 public totalBonusReward;
+    uint256 private totalInterestReward;
+    uint256 private totalBonusReward;
     
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {
         // Mint 100 tokens to msg.sender
@@ -821,7 +821,45 @@ contract Tempus is ERC20, Ownable {
      * no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
-     
+    
+    function getTotalHODLInfo() public view returns(
+        uint256 _totalHODLs,
+        uint256 _totalGoodHODLs,
+        uint256 _totalCurrentHolding,
+        uint256 _totalGoodHODLsAmount,
+        uint256 _totalCurrentHoldingAmount,
+        uint256 _totalHODLsAmount,
+        uint256 _totalInterestReward,
+        uint256 _totalBonusReward
+        ) {
+        
+        _totalHODLs = totalHODLs;
+        _totalGoodHODLs = totalGoodHODLs;
+        _totalCurrentHolding = totalCurrentHolding;
+        _totalGoodHODLsAmount = totalGoodHODLsAmount;
+        _totalCurrentHoldingAmount = totalCurrentHoldingAmount;
+        _totalHODLsAmount = totalHODLsAmount;
+        _totalInterestReward = totalInterestReward;
+        _totalBonusReward = totalBonusReward;
+    }
+    
+    function getHODLStateFromAddress(address account) public view returns(
+                bool _isStart,
+                uint256 _startTime,
+                uint256 _startAmount,
+                bool _isQuality,
+                bool _useAffiliateCode,
+                address _affiliateAddress) {
+                    
+        HODL_Info memory info = HODLInfos[account];
+        _isStart = info.isStart;
+        _startTime = info.startTime;
+        _startAmount = info.startAmount;
+        _isQuality = info.isQuality;
+        _useAffiliateCode = info.useAffiliateCode;
+        _affiliateAddress = info.affiliateAddress;
+    }
+    
     function mint(address account, uint256 amount) public onlyOwner {
         _mint(account, amount);
     } 
@@ -889,8 +927,51 @@ contract Tempus is ERC20, Ownable {
         HODLInfos[inAddress] = info;
     }
     
-    function startHODL(bool useAffiliateCode, address affiliateAddress) public returns(bool) {
-        processStartHODL(msg.sender, useAffiliateCode, affiliateAddress);
+    function startHODLWithAffiliate(address affiliateAddress) public returns(bool) {
+        address inAddress = msg.sender;
+        require(inAddress != address(0), "ERC20: transaction from the zero address");
+        require(balanceOf(inAddress) != 0, "ERC20: balance is zero.");
+        require(HODLInfos[inAddress].isStart == false, "ERC20: HODL is already started.");
+        
+        HODL_Info memory info;
+        
+        info.isStart = true;
+        info.startTime = block.timestamp;
+        info.startAmount = balanceOf(inAddress);
+        info.isQuality = true;
+        info.useAffiliateCode = true;
+        info.affiliateAddress = affiliateAddress;
+        
+        totalCurrentHolding += 1;
+        totalCurrentHoldingAmount = totalCurrentHoldingAmount.add(info.startAmount);
+        totalHODLs += 1;
+        totalHODLsAmount = totalHODLsAmount.add(info.startAmount);
+        
+        HODLInfos[inAddress] = info;
+        return true;
+    }
+    
+    function startHODLWithoutAffiliate() public returns(bool) {
+        address inAddress = msg.sender;
+        require(inAddress != address(0), "ERC20: transaction from the zero address");
+        require(balanceOf(inAddress) != 0, "ERC20: balance is zero.");
+        require(HODLInfos[inAddress].isStart == false, "ERC20: HODL is already started.");
+        
+        HODL_Info memory info;
+        
+        info.isStart = true;
+        info.startTime = block.timestamp;
+        info.startAmount = balanceOf(inAddress);
+        info.isQuality = true;
+        info.useAffiliateCode = false;
+        info.affiliateAddress = address(0);
+        
+        totalCurrentHolding += 1;
+        totalCurrentHoldingAmount = totalCurrentHoldingAmount.add(info.startAmount);
+        totalHODLs += 1;
+        totalHODLsAmount = totalHODLsAmount.add(info.startAmount);
+        
+        HODLInfos[inAddress] = info;
         return true;
     }
     
@@ -917,14 +998,77 @@ contract Tempus is ERC20, Ownable {
         HODLInfos[inAddress] = info;
     }
     
-    function stopHODL() public returns(bool) {
-        processStopHODL(msg.sender);
+    function stopHODLWithAffiliate() public returns(bool) {
+        address inAddress = msg.sender;
+        require(inAddress != address(0), "ERC20: transaction from the zero address");
+        require(balanceOf(inAddress) != 0, "ERC20: balance is zero.");
+        require(HODLInfos[inAddress].isStart, "ERC20: No start HODL.");
+        require(HODLInfos[inAddress].isQuality, "ERC20: HODL amount is zero.");
+        
+        uint256 interestReward = getInterestReward(inAddress);
+        uint256 bonusReward = getBonusReward(inAddress, interestReward);
+        
+        uint256 totalReward = interestReward.add(bonusReward);
+        
+        if(HODLInfos[inAddress].useAffiliateCode && bonusReward > 0)
+            this.transfer(HODLInfos[inAddress].affiliateAddress, bonusReward);
+        
+        if(interestReward > 0)
+            this.transfer(inAddress, totalReward);
+        
+        if(balanceOf(address(this)) < 10000000 * (10 ** _decimals)) {
+            _mint(address(address(this)), 10000000 * (10 ** decimals()));
+            _totalSupply = _totalSupply.add(10000000 * (10 ** decimals()));
+        }
+        
+        //change infos
+        totalGoodHODLs += 1;
+        totalGoodHODLsAmount = totalGoodHODLsAmount.add(HODLInfos[inAddress].startAmount);
+        totalInterestReward = totalInterestReward.add(interestReward);
+        totalBonusReward = totalBonusReward.add(bonusReward);
+        
+        reset(inAddress);
+        return true;
+    }
+    
+    function stopHODLWithoutAffiliate() public returns(bool) {
+        address inAddress = msg.sender;
+        require(inAddress != address(0), "ERC20: transaction from the zero address");
+        require(balanceOf(inAddress) != 0, "ERC20: balance is zero.");
+        require(HODLInfos[inAddress].isStart, "ERC20: No start HODL.");
+        require(HODLInfos[inAddress].isQuality, "ERC20: HODL amount is zero.");
+        
+        uint256 interestReward = getInterestReward(inAddress);
+        uint256 bonusReward = getBonusReward(inAddress, interestReward);
+        
+        uint256 totalReward = interestReward.add(bonusReward);
+        
+        if(HODLInfos[inAddress].useAffiliateCode && bonusReward > 0)
+            this.transfer(HODLInfos[inAddress].affiliateAddress, bonusReward);
+        
+        if(interestReward > 0)
+            this.transfer(inAddress, totalReward);
+        
+        if(balanceOf(address(this)) < 10000000 * (10 ** _decimals)) {
+            _mint(address(address(this)), 10000000 * (10 ** decimals()));
+            _totalSupply = _totalSupply.add(10000000 * (10 ** decimals()));
+        }
+        
+        //change infos
+        totalGoodHODLs += 1;
+        totalGoodHODLsAmount = totalGoodHODLsAmount.add(HODLInfos[inAddress].startAmount);
+        totalInterestReward = totalInterestReward.add(interestReward);
+        totalBonusReward = totalBonusReward.add(bonusReward);
+        
+        reset(inAddress);
         return true;
     }
     
     function processStopHODL(address inAddress) private {
         require(inAddress != address(0), "ERC20: transaction from the zero address");
         require(balanceOf(inAddress) != 0, "ERC20: balance is zero.");
+        require(HODLInfos[inAddress].isStart, "ERC20: No start HODL.");
+        require(HODLInfos[inAddress].isQuality, "ERC20: HODL amount is zero.");
         
         (
             uint256 interestReward,
@@ -961,9 +1105,10 @@ contract Tempus is ERC20, Ownable {
     
     function getInterestReward(address inAddress) private view returns(uint256) {
         HODL_Info memory info = HODLInfos[inAddress];
-        require(info.isStart, "ERC20: No start HODL.");
-        require(info.startAmount != 0, "ERC20: HODL amount is zero.");
-        require(info.isQuality, "ERC20: No quality HODL.");
+        if(info.isQuality == false) {
+            //reset(inAddress);
+            return 0;
+        }
         
         uint256 holdedtime = (block.timestamp).sub(info.startTime);
         uint256 hodleddays = (holdedtime.sub(holdedtime.mod(timeinterval))).div(timeinterval);
