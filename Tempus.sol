@@ -2,33 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-
-/**
- * @dev Implementation of the {IERC20} interface.
- *
- * This implementation is agnostic to the way tokens are created. This means
- * that a supply mechanism has to be added in a derived contract using {_mint}.
- * For a generic mechanism see {ERC20PresetMinterPauser}.
- *
- * TIP: For a detailed writeup see our guide
- * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
- * to implement supply mechanisms].
- *
- * We have followed general OpenZeppelin Contracts guidelines: functions revert
- * instead returning `false` on failure. This behavior is nonetheless
- * conventional and does not conflict with the expectations of ERC20
- * applications.
- *
- * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
- * This allows applications to reconstruct the allowance for all accounts just
- * by listening to said events. Other implementations of the EIP may not emit
- * these events, as it isn't required by the specification.
- *
- * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
- * functions have been added to mitigate the well-known issues around setting
- * allowances. See {IERC20-approve}.
- */
-
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
@@ -107,6 +80,8 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
+pragma solidity ^0.8.0;
+
 /**
  * @dev Provides information about the current execution context, including the
  * sender of the transaction and its data. While these are generally available
@@ -126,6 +101,8 @@ abstract contract Context {
         return msg.data;
     }
 }
+
+pragma solidity ^0.8.0;
 
 /**
  * @dev Interface for the optional metadata functions from the ERC20 standard.
@@ -149,6 +126,34 @@ interface IERC20Metadata is IERC20 {
     function decimals() external view returns (uint8);
 }
 
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Implementation of the {IERC20} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
+ *
+ * TIP: For a detailed writeup see our guide
+ * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
+ *
+ * We have followed general OpenZeppelin Contracts guidelines: functions revert
+ * instead returning `false` on failure. This behavior is nonetheless
+ * conventional and does not conflict with the expectations of ERC20
+ * applications.
+ *
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IERC20-approve}.
+ */
 contract ERC20 is Context, IERC20, IERC20Metadata {
     mapping(address => uint256) private _balances;
 
@@ -472,6 +477,8 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     ) internal virtual {}
 }
 
+pragma solidity ^0.8.0;
+
 // CAUTION
 // This version of SafeMath should only be used with Solidity 0.8 or later,
 // because it relies on the compiler's built in overflow checks.
@@ -479,7 +486,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 /**
  * @dev Wrappers over Solidity's arithmetic operations.
  *
- * NOTE: `SafeMath` is no longer needed starting with Solidity 0.8. The compiler
+ * NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
  * now has built in overflow checking.
  */
 library SafeMath {
@@ -695,6 +702,8 @@ library SafeMath {
     }
 }
 
+pragma solidity ^0.8.0;
+
 /**
  * @dev Contract module which provides a basic access control mechanism, where
  * there is an account (an owner) that can be granted exclusive access to
@@ -765,6 +774,7 @@ abstract contract Ownable is Context {
     }
 }
 
+pragma solidity ^0.8.0;
 contract Tempus is ERC20, Ownable {
     
     using SafeMath for uint256;
@@ -782,7 +792,8 @@ contract Tempus is ERC20, Ownable {
     }
     
     uint256 private timeinterval = 1 minutes;
-    uint256 private rateInterest = 25 * (10 ** _decimals) / (100 * 100); // 0.25%
+    uint256 public Interest_Reward_Rate = 15 * (10 ** _decimals) / (100 * 100); // 0.15%
+    uint256 public Can_Reward_Max_Days = 365;
     uint256 private rateBonus = 1000 * (10 ** _decimals) / (100 * 100); // 10%
     
     mapping(address => HODL_Info) private HODLInfos;
@@ -790,15 +801,15 @@ contract Tempus is ERC20, Ownable {
     uint256 startSignalAmount = 1; //0.00000001
     uint256 stopSignalAmount = 2; //0.00000002
     
-    uint256 private totalHODLs;
-    uint256 private totalGoodHODLs;
-    uint256 private totalCurrentHolding;
-    uint256 private totalGoodHODLsAmount;
-    uint256 private totalCurrentHoldingAmount;
-    uint256 private totalHODLsAmount;
+    uint256 public totalHODLs;
+    uint256 public totalGoodHODLs;
+    uint256 public totalCurrentHolding;
+    uint256 public totalGoodHODLsAmount;
+    uint256 public totalCurrentHoldingAmount;
+    uint256 public totalHODLsAmount;
     
-    uint256 private totalInterestReward;
-    uint256 private totalBonusReward;
+    uint256 public totalInterestReward;
+    uint256 public totalBonusReward;
     
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {
         // Mint 100 tokens to msg.sender
@@ -808,56 +819,28 @@ contract Tempus is ERC20, Ownable {
         _mint(address(this), _totalSupply);
     }
     
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
-     *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless this function is
-     * overridden;
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
-     */
-    
-    function getTotalHODLInfo() public view returns(
-        uint256 _totalHODLs,
-        uint256 _totalGoodHODLs,
-        uint256 _totalCurrentHolding,
-        uint256 _totalGoodHODLsAmount,
-        uint256 _totalCurrentHoldingAmount,
-        uint256 _totalHODLsAmount,
-        uint256 _totalInterestReward,
-        uint256 _totalBonusReward
-        ) {
-        
-        _totalHODLs = totalHODLs;
-        _totalGoodHODLs = totalGoodHODLs;
-        _totalCurrentHolding = totalCurrentHolding;
-        _totalGoodHODLsAmount = totalGoodHODLsAmount;
-        _totalCurrentHoldingAmount = totalCurrentHoldingAmount;
-        _totalHODLsAmount = totalHODLsAmount;
-        _totalInterestReward = totalInterestReward;
-        _totalBonusReward = totalBonusReward;
+    function HODLInfo_IsStarted(address inAddress) public view returns(bool) {
+        return HODLInfos[inAddress].isStart;
     }
     
-    function getHODLStateFromAddress(address account) public view returns(
-                bool _isStart,
-                uint256 _startTime,
-                uint256 _startAmount,
-                bool _isQuality,
-                bool _useAffiliateCode,
-                address _affiliateAddress) {
-                    
-        HODL_Info memory info = HODLInfos[account];
-        _isStart = info.isStart;
-        _startTime = info.startTime;
-        _startAmount = info.startAmount;
-        _isQuality = info.isQuality;
-        _useAffiliateCode = info.useAffiliateCode;
-        _affiliateAddress = info.affiliateAddress;
+    function HODLInfo_StartedTime(address inAddress) public view returns(uint256) {
+        return HODLInfos[inAddress].startTime;
+    }
+    
+    function HODLInfo_StartedAmount(address inAddress) public view returns(uint256) {
+        return HODLInfos[inAddress].startAmount;
+    }
+    
+    function HODLInfo_Valid(address inAddress) public view returns(bool) {
+        return HODLInfos[inAddress].isQuality;
+    }
+    
+    function HODLInfo_UseAffiliateCode(address inAddress) public view returns(bool) {
+        return HODLInfos[inAddress].useAffiliateCode;
+    }
+    
+    function HODLInfo_AffiliateAddress(address inAddress) public view returns(address) {
+        return HODLInfos[inAddress].affiliateAddress;
     }
     
     function mint(address account, uint256 amount) public onlyOwner {
@@ -1005,8 +988,11 @@ contract Tempus is ERC20, Ownable {
         require(HODLInfos[inAddress].isStart, "ERC20: No start HODL.");
         require(HODLInfos[inAddress].isQuality, "ERC20: HODL amount is zero.");
         
-        uint256 interestReward = getInterestReward(inAddress);
-        uint256 bonusReward = getBonusReward(inAddress, interestReward);
+        uint256 interestReward = Reward_Interest(inAddress);
+        
+        uint256 bonusReward = 0;
+        if(HODLInfos[inAddress].useAffiliateCode)
+            bonusReward = interestReward.mul(rateBonus).div(10 ** decimals());
         
         uint256 totalReward = interestReward.add(bonusReward);
         
@@ -1038,8 +1024,11 @@ contract Tempus is ERC20, Ownable {
         require(HODLInfos[inAddress].isStart, "ERC20: No start HODL.");
         require(HODLInfos[inAddress].isQuality, "ERC20: HODL amount is zero.");
         
-        uint256 interestReward = getInterestReward(inAddress);
-        uint256 bonusReward = getBonusReward(inAddress, interestReward);
+        uint256 interestReward = Reward_Interest(inAddress);
+        
+        uint256 bonusReward = 0;
+        if(HODLInfos[inAddress].useAffiliateCode)
+            bonusReward = interestReward.mul(rateBonus).div(10 ** decimals());
         
         uint256 totalReward = interestReward.add(bonusReward);
         
@@ -1070,11 +1059,13 @@ contract Tempus is ERC20, Ownable {
         require(HODLInfos[inAddress].isStart, "ERC20: No start HODL.");
         require(HODLInfos[inAddress].isQuality, "ERC20: HODL amount is zero.");
         
-        (
-            uint256 interestReward,
-            uint256 bonusReward,
-            uint256 totalReward
-        ) = getTotalReward(inAddress);
+        uint256 interestReward = Reward_Interest(inAddress);
+        
+        uint256 bonusReward = 0;
+        if(HODLInfos[inAddress].useAffiliateCode)
+            bonusReward = interestReward.mul(rateBonus).div(10 ** decimals());
+        
+        uint256 totalReward = interestReward.add(bonusReward);
         
         if(HODLInfos[inAddress].useAffiliateCode && bonusReward > 0)
             this.transfer(HODLInfos[inAddress].affiliateAddress, bonusReward);
@@ -1096,14 +1087,17 @@ contract Tempus is ERC20, Ownable {
         reset(inAddress);
     }
     
-    function getTotalReward(address inAddress) public view returns(uint256 _interestReward, uint256 _bonusReward, uint256 _totalReward){
-        _interestReward = getInterestReward(inAddress);
-        _bonusReward = getBonusReward(inAddress, _interestReward);
+    function Reward_Total(address inAddress) public view returns(uint256){
+        uint256 interestReward = Reward_Interest(inAddress);
         
-        _totalReward = _interestReward.add(_bonusReward);
+        uint256 bonusReward = 0;
+        if(HODLInfos[inAddress].useAffiliateCode)
+            bonusReward = interestReward.mul(rateBonus).div(10 ** decimals());
+        
+        return interestReward.add(bonusReward);
     }
     
-    function getInterestReward(address inAddress) private view returns(uint256) {
+    function Reward_Interest(address inAddress) public view returns(uint256) {
         HODL_Info memory info = HODLInfos[inAddress];
         if(info.isQuality == false) {
             //reset(inAddress);
@@ -1112,19 +1106,21 @@ contract Tempus is ERC20, Ownable {
         
         uint256 holdedtime = (block.timestamp).sub(info.startTime);
         uint256 hodleddays = (holdedtime.sub(holdedtime.mod(timeinterval))).div(timeinterval);
+        if(hodleddays > Can_Reward_Max_Days)
+            hodleddays = Can_Reward_Max_Days;
         
-        uint256 interestReward = (info.startAmount).mul(hodleddays.mul(rateInterest)).div(10 ** decimals());
+        uint256 interestReward = (info.startAmount).mul(hodleddays.mul(Interest_Reward_Rate)).div(10 ** decimals());
         
         return interestReward;
     }
     
-    function getBonusReward(address inAddress, uint256 interestedReward) private view returns(uint256) {
-        HODL_Info memory info = HODLInfos[inAddress];
+    function Reward_Bonus(address inAddress) public view returns(uint256) {
+        uint256 interestReward = Reward_Interest(inAddress);
+        
         uint256 bonusReward = 0;
-        if(info.useAffiliateCode)
-            bonusReward = interestedReward.mul(rateBonus).div(10 ** decimals());
+        if(HODLInfos[inAddress].useAffiliateCode)
+            bonusReward = interestReward.mul(rateBonus).div(10 ** decimals());
         
         return bonusReward;
     }
-
 }
